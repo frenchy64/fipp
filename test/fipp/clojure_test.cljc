@@ -18,4 +18,31 @@
            #?(:clj "[#'clojure.core/inc ^{:y 1} x]"
               :cljs "[#'cljs.core/inc ^{:y 1} x]")))))
 
-;;TODO lots more tests
+(deftest lossy-reader-unexpansion-test
+  (is (= (clean (with-out-str (pprint '(let [deref foo] (deref foo)))))
+         "(let [deref foo] (deref foo))"))
+  (is (= (clean (with-out-str (pprint '~(deref foo))))
+         "~(deref foo)"))
+  (is (= (clean (with-out-str (pprint `(deref))))
+         "(clojure.core/deref)"))
+  (is (= (clean (with-out-str (pprint `(deref 1 2 3))))
+         "(clojure.core/deref 1 2 3)"))
+  (is (= (clean (with-out-str (pprint `(unquote))))
+         "(clojure.core/unquote)"))
+  (is (= (clean (with-out-str (pprint `(unquote 1 2 3))))
+         "(clojure.core/unquote 1 2 3)"))
+  (is (= (clean (with-out-str (pprint '(unquote (deref foo)))))
+         "(unquote (deref foo))")))
+
+(deftest quote-deref-test
+  (testing "~,@ is not ~@"
+    (is (= (clean (with-out-str (pprint '(clojure.core/unquote (clojure.core/deref foo)))))
+           "~,@foo"))
+    (is (= (clean (with-out-str (pprint '~(clojure.core/deref foo))))
+           "~,@foo"))
+    (is (= (clean (with-out-str (pprint '~(clojure.core/deref foo))))
+           "~,@foo"))
+    (is (= (clean (with-out-str (pprint '~ @foo)))
+           "~,@foo"))
+    (is (= (clean (with-out-str (pprint '~,@foo)))
+           "~,@foo"))))
